@@ -12,6 +12,8 @@ let isTransitioning = false;
 let accumulatedDelta = 0;
 let wheelTimeout = null;
 let hasTriggeredThisGesture = false;
+let sectionArrivalTime = 0; // Timestamp when we arrived at current section
+let videoObserver = null; // Global reference for registering dynamically created videos
 const DELTA_THRESHOLD = 50; // Accumulated delta needed to trigger transition
 
 function renderContent() {
@@ -131,6 +133,9 @@ function setupSequenceScrolling() {
     // Don't process if transitioning
     if (isTransitioning) return;
 
+    // Ignore wheel events briefly after arriving at a new section
+    if (Date.now() - sectionArrivalTime < 500) return;
+
     const currentSlide = parseInt(currentSection.dataset.currentSlide);
 
     // Accumulate delta
@@ -185,6 +190,9 @@ function setupSequenceScrolling() {
 
     if (isTransitioning || touchHandled) return;
 
+    // Ignore touch events briefly after arriving at a new section
+    if (Date.now() - sectionArrivalTime < 500) return;
+
     const touchY = e.touches[0].clientY;
     const deltaY = touchStartY - touchY;
 
@@ -209,7 +217,13 @@ function setupSequenceScrolling() {
     entries.forEach(entry => {
       if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
         const index = parseInt(entry.target.dataset.sectionIndex);
-        currentSectionIndex = index; // Track all sections including cover (-1)
+        if (index !== currentSectionIndex) {
+          currentSectionIndex = index; // Track all sections including cover (-1)
+          sectionArrivalTime = Date.now(); // Record when we arrived at this section
+          // Reset scroll gesture state to prevent carryover from previous section
+          accumulatedDelta = 0;
+          hasTriggeredThisGesture = false;
+        }
       }
     });
   }, { threshold: 0.5 });
@@ -304,11 +318,22 @@ function transitionToSlide(sectionEl, slideIndex) {
     // Force reflow then fade in new media
     newMedia.offsetHeight;
     requestAnimationFrame(() => {
+      // Fade out old media quickly while new fades in - prevents edges showing with different aspect ratios
+      // but avoids harsh flash by having a brief overlap
+      if (currentMedia) {
+        currentMedia.style.transition = 'opacity 0.2s ease';
+        currentMedia.style.opacity = '0';
+      }
+
       newMedia.style.transition = 'opacity 0.4s ease';
       newMedia.style.opacity = '1';
 
       if (slide.type === 'video') {
         newMedia.play().catch(() => {});
+        // Register dynamically created video with observer so it auto-plays/pauses on visibility
+        if (videoObserver) {
+          videoObserver.observe(newMedia);
+        }
       }
     });
 
@@ -367,7 +392,8 @@ function fadeText(element, newText) {
 function setupVideoHandling() {
   const videos = document.querySelectorAll('video.active-media');
 
-  const videoObserver = new IntersectionObserver((entries) => {
+  // Store observer at module scope so transitionToSlide() can register new videos
+  videoObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       const video = entry.target;
       if (entry.isIntersecting) {
