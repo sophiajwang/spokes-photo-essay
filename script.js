@@ -151,9 +151,10 @@ function setupSequenceScrolling() {
     // Clear previous timeout
     if (wheelTimeout) clearTimeout(wheelTimeout);
 
-    // Reset accumulator after pause in scrolling
+    // Reset accumulator and gesture flag after pause in scrolling
     wheelTimeout = setTimeout(() => {
       accumulatedDelta = 0;
+      hasTriggeredThisGesture = false;
     }, 150);
 
     // Check if we've accumulated enough to trigger
@@ -272,6 +273,10 @@ function scrollToAdjacentSection(direction) {
       // Refresh the arrival time to ensure cooldown starts from when transition completes
       sectionArrivalTime = Date.now();
     }, 800);
+  } else {
+    // At the very beginning or end - reset gesture state so user can scroll the other direction
+    hasTriggeredThisGesture = false;
+    accumulatedDelta = 0;
   }
 }
 
@@ -376,10 +381,9 @@ function transitionToSlide(sectionEl, slideIndex) {
       newMedia.style.transition = '';
     }, 450);
 
-    // Release the lock after a longer delay to absorb the full scroll gesture
+    // Release the transition lock (gesture flag is reset by wheelTimeout when scrolling stops)
     setTimeout(() => {
       isTransitioning = false;
-      hasTriggeredThisGesture = false;
     }, 700);
   } else {
     isTransitioning = false;

@@ -1,6 +1,6 @@
 const photoEssayData = {
   title: "Dear Spokes,",
-  intro: "75 days, 4,037 miles, 171,691 feet, 6 tattoos, and more stories than miles. Here's what we saw,",
+  intro: "75 days, 4,037 miles, 171,691 feet, <s>6 tattoos</s>, and more stories than miles. Here's what we saw,",
   signature: "Yours, Sophia J. Wang",
   sections: [
     {
