@@ -1,111 +1,108 @@
 # Architectural Patterns
 
-This document describes the patterns used across the codebase.
+Patterns and design decisions used across the codebase.
 
-## State Machine Pattern
+## State Machine Navigation
 
-Global state variables control application behavior (`script.js:9-15`):
+Global state variables control navigation (`script.js:9-18`):
+- `currentSectionIndex` - Visible section (-1 = cover, 0+ = media sections)
+- `isTransitioning` - Animation lock prevents concurrent transitions
+- `accumulatedDelta` - Wheel delta accumulator for threshold detection
+- `hasTriggeredThisGesture` - One trigger per scroll gesture
+- `sectionArrivalTime` - Timestamp for arrival cooldown (600ms)
+- `scrollSnapPendingTime` - Timestamp for scroll-snap coordination (1000ms)
 
-```
-currentSectionIndex  - Which section is visible (-1 = cover)
-isTransitioning      - Lock preventing overlapping animations
-accumulatedDelta     - Accumulated scroll wheel delta
-hasTriggeredThisGesture - Prevents multiple triggers per scroll gesture
-```
+All navigation checks `isTransitioning` before proceeding (`script.js:139`, `296`).
 
-State is updated first, then DOM updates follow. See `transitionToSlide()` at `script.js:260`.
+## Scroll Delta Accumulation
 
-## Scroll Accumulation Pattern
+Wheel events accumulate delta until crossing threshold (`script.js:148-177`):
 
-Wheel events fire rapidly. Rather than responding to each event, delta values accumulate until a threshold is reached (`script.js:136-165`):
+1. Accumulate `e.deltaY` into `accumulatedDelta`
+2. Reset via timeout after 150ms pause (`script.js:155-158`)
+3. Trigger when `|accumulatedDelta| >= DELTA_THRESHOLD` (50px)
+4. Set `hasTriggeredThisGesture` to prevent re-triggering
 
-1. Each wheel event adds to `accumulatedDelta`
-2. Only trigger action when `|accumulatedDelta| >= DELTA_THRESHOLD`
-3. Reset accumulator after 150ms of no scrolling
-4. `hasTriggeredThisGesture` ensures one trigger per scroll gesture
+**Why**: Trackpads generate many small delta events. Accumulation ensures one gesture = one navigation.
 
-This prevents jittery navigation while allowing natural momentum scrolling.
+## IntersectionObserver Usage
 
-## Intersection Observer Pattern
+Two observers handle visibility-based behavior:
 
-Used instead of scroll event listeners for passive tracking:
+### Section Tracking (`script.js:229-246`)
+- 50% visibility threshold
+- Updates `currentSectionIndex` and `sectionArrivalTime`
+- Resets scroll gesture state on section change
 
-- **Section tracking** (`script.js:208-221`): Updates `currentSectionIndex` when section >50% visible
-- **Video visibility** (`script.js:364-373`): Play/pause videos based on viewport presence
+### Video Auto-Play (`script.js:428-439`)
+- Module-scoped `videoObserver` for dynamic registration
+- Plays when visible, pauses when hidden
+- New videos registered in `transitionToSlide()` (`script.js:365-367`)
 
-Benefits: Better performance, automatic cleanup, declarative thresholds.
+## Crossfade Animation
 
-## Element Data Storage Pattern
+Media transitions use stacked elements with opacity (`script.js:313-391`):
 
-Section data from `data.js` is stored directly on DOM elements (`script.js:109-112`):
+1. Create new element with `opacity: 0`
+2. Append after current (higher z-index via `.new-media`)
+3. `requestAnimationFrame` then transition both:
+   - Old: `opacity: 0` over 200ms
+   - New: `opacity: 1` over 400ms
+4. Remove old element after 450ms
 
-```javascript
-el._sectionData = photoEssayData.sections[i];
-```
+CSS support (`styles.css:119-125`): `.active-media.new-media { z-index: 2; }`
 
-This enables quick access to content data without re-querying the global object.
+## Data-Driven DOM Rendering
 
-## Crossfade Animation Pattern
+All UI generates from `photoEssayData` in `data.js`.
 
-Media transitions use a layered crossfade approach (`script.js:278-326`):
+**Render function** (`script.js:20-116`):
+- Iterates sections, generates HTML strings
+- Stores data on elements: `el._sectionData = photoEssayData.sections[i]` (`script.js:113-115`)
+- Preloads images in hidden container (`script.js:38-42`)
 
-1. Create new media element (clone for video, new for image)
-2. Position with opacity 0
-3. Append to wrapper (stacks above current media via z-index)
-4. Fade in new media via `requestAnimationFrame`
-5. After transition completes (450ms), remove old media
+**Data access**: Read index from DOM (`dataset.currentSlide`), content from `_sectionData`.
 
-CSS supports this via `styles.css:107-112` with z-index layering.
+## Hybrid Scroll-Snap Strategy
 
-## Two-Phase Text Animation
+CSS scroll-snap for simple cases, JavaScript for complex:
 
-Caption updates use separate fade-out/fade-in phases (`script.js:347-359`):
+**Decision** (`script.js:126-136`):
+- Single-slide sections: Let CSS scroll-snap handle
+- Multi-slide sections: `e.preventDefault()`, handle in JavaScript
 
-1. Add `fade-out-text` class (200ms)
-2. Update text content
-3. Add `fade-in-text` class (300ms)
-4. Remove animation classes
+**Coordination**: `scrollSnapPendingTime` blocks JS navigation during CSS scroll-snap.
 
-This creates smoother perceived transitions than simultaneous updates.
+## Cooldown Timing
 
-## Progressive Enhancement
+Multiple mechanisms prevent navigation artifacts:
 
-The HTML is minimal (`index.html:10`):
-
-```html
-<div class="container"></div>
-```
-
-All content is generated by JavaScript from the data file. If JS fails, the page shows nothing but doesn't error.
-
-## Event Delegation
-
-Event listeners attach to the container, not individual elements:
-
-- Wheel events: `script.js:118`
-- Touch events: `script.js:172`, `script.js:177`
-- Scroll events: `script.js:423`
-
-Uses `data-*` attributes to identify elements (e.g., `data-section-index`, `data-slide-index`).
+| Mechanism | Duration | Purpose |
+|-----------|----------|---------|
+| `wheelTimeout` | 150ms | Reset accumulator after gesture ends |
+| `sectionArrivalTime` | 600ms | Ignore events after section arrival |
+| `scrollSnapPendingTime` | 1000ms | Ignore during scroll-snap animation |
+| `isTransitioning` | 700-800ms | Block during slide animation |
 
 ## Preloading Strategy
 
-Media is preloaded in hidden containers (`script.js:36-71`):
+Images and videos preload in hidden containers (`script.js:38-42`, `66-75`):
+- Images: `<img class="preload-image" data-slide-index="...">`
+- Videos: `<video class="preload-video" data-slide-index="...">` (cloned on use)
+- Hidden via CSS (`styles.css:244-251`): `opacity: 0; pointer-events: none`
 
-```html
-<div class="preload-container" style="display:none;">
-  <img class="preload-image" data-slide-index="1" src="...">
-  <video class="preload-video" data-slide-index="2">...</video>
-</div>
-```
+## Event Delegation
 
-When transitioning, preloaded elements are cloned (video) or their src is copied (image), enabling instant display.
+Listeners attach to container, not individual elements:
+- Wheel: `script.js:122`
+- Touch: `script.js:184`, `189`
+- Keyboard: `script.js:445`
 
-## CSS Scroll Snap Integration
+Uses `data-*` attributes for element identification.
 
-The app combines JavaScript slide navigation with CSS scroll-snap for section navigation:
+## Two-Phase Text Animation
 
-- CSS handles section-to-section scrolling (`styles.css:16-22`)
-- JavaScript handles within-section slide transitions
-- Multi-slide sections prevent default scroll to manage their own slides (`script.js:128`)
-- Single-slide sections pass through to native scroll-snap
+Caption updates use separate fade-out/fade-in (`script.js:410-422`):
+1. Add `fade-out-text` (200ms)
+2. Update text content
+3. Add `fade-in-text` (300ms)

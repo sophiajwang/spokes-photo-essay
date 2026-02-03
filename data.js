@@ -43,8 +43,8 @@ const photoEssayData = {
       title: "Asleep under the stars",
       subtitle: "Many of our routes went through beautiful state and national parks, giving us clear night skies. These evenings were spent stargazing and eating s'mores; we felt very small already on our bikes through this big country, and even smaller on these particular nights.",
       slides: [
-        { media: "5_1.JPG", location: "Big Meadows Campground, Shenandoah National Park" },
-        { media: "5_2.JPG", location: "Escalante Petrified Forest State Park" }
+        { media: "5_1.JPG", location: "Big Meadows Campground, Shenandoah National Park, Virginia" },
+        { media: "5_2.JPG", location: "Escalante Petrified Forest State Park, Utah" }
       ]
     },
     {
@@ -159,8 +159,8 @@ const photoEssayData = {
       ]
     },
     {
-      title: "It's worth it \u2014 the sunsets",
-      subtitle: "My favorite poem, by Peter Chinman, goes:\n\nHe thought the dogs were chasing lemons\nacross the lawn until you told him about tennis\nsee Kentucky before you die kid\nit's worth it \u2014 the sunsets\n\nKentucky had its sunsets, but so did every state we traversed. Just go out and see Kentucky, see Kansas, see California, see Utah, just see before you die kid. And when you see a sunset, stop and stay with it for a while.",
+      title: "It's worth it — the sunsets",
+      subtitle: "My favorite poem, by Peter Chinman, goes:\n\nHe thought the dogs were chasing lemons\nacross the lawn until you told him about tennis\nsee Kentucky before you die kid\nit's worth it\tthe sunsets\n\nKentucky had its sunsets, but so did every state we traversed. Just go out and see Kentucky, see Kansas, see California, see Utah, just see before you die kid. And when you see a sunset, stop and stay with it for a while.",
       slides: [
         { media: "17_1.JPG", location: "Eureka, Nevada" },
         { media: "17_2.PNG", location: "Gun Creek, Illinois" }

@@ -14,8 +14,8 @@ Interactive photo/video essay documenting a 75-day cycling journey across Americ
 ```
 spokes-photo-essay/
 ├── index.html      # Entry point (minimal - single container div)
-├── script.js       # Application logic (450 lines)
-├── styles.css      # Responsive styling (350 lines)
+├── script.js       # Application logic (~540 lines)
+├── styles.css      # Responsive styling (~350 lines)
 ├── data.js         # Content data structure
 └── media/          # Images & videos (~65 files)
 ```
@@ -42,14 +42,16 @@ Media files referenced by filename only (e.g., `"photo.jpg"` resolves to `media/
 
 | Function | Line | Purpose |
 |----------|------|---------|
-| `renderContent()` | 17 | Generates DOM from data.js |
-| `setupSequenceScrolling()` | 115 | Wheel/touch navigation |
-| `transitionToSlide()` | 260 | Crossfade between slides |
-| `scrollToAdjacentSection()` | 223 | Section-to-section navigation |
-| `setupKeyboardNavigation()` | 378 | Arrow keys & spacebar |
-| `setupSignatureReveal()` | 413 | End-of-essay signature reveal |
+| `renderContent()` | 20 | Generates DOM from data.js |
+| `setupSequenceScrolling()` | 118 | Wheel/touch navigation |
+| `scrollToAdjacentSection()` | 249 | Section-to-section navigation |
+| `transitionToSlide()` | 295 | Crossfade between slides |
+| `fadeText()` | 410 | Caption text animation |
+| `setupVideoHandling()` | 424 | Video auto-play/pause |
+| `setupKeyboardNavigation()` | 442 | Arrow keys & spacebar |
+| `setupSignatureReveal()` | 477 | End-of-essay signature reveal |
 
-State variables (`script.js:9-15`):
+State variables (`script.js:9-18`):
 - `currentSectionIndex` - Which section is visible
 - `isTransitioning` - Animation lock
 - `accumulatedDelta` / `hasTriggeredThisGesture` - Scroll gesture handling
@@ -59,7 +61,8 @@ State variables (`script.js:9-15`):
 | Section | Lines | Purpose |
 |---------|-------|---------|
 | Scroll container | 16-22 | CSS scroll-snap configuration |
-| Media section | 84-125 | 70/30 media-to-caption split |
+| Media section | 84-126 | 70/30 media-to-caption split |
+| Crossfade support | 119-125 | z-index for media transitions |
 | Mobile responsive | 254-311 | Stacked layout for <768px |
 
 ## Development

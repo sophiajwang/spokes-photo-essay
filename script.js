@@ -14,6 +14,7 @@ let wheelTimeout = null;
 let hasTriggeredThisGesture = false;
 let sectionArrivalTime = 0; // Timestamp when we arrived at current section
 let scrollSnapPendingTime = 0; // Timestamp when scroll-snap navigation started
+let slideTransitionEndTime = 0; // Timestamp when slide transition completed (for momentum cooldown)
 let videoObserver = null; // Global reference for registering dynamically created videos
 const DELTA_THRESHOLD = 50; // Accumulated delta needed to trigger transition
 
@@ -138,10 +139,11 @@ function setupSequenceScrolling() {
     // Don't process if transitioning
     if (isTransitioning) return;
 
-    // Ignore wheel events briefly after arriving at a new section or after scroll-snap started
+    // Ignore wheel events briefly after arriving at a new section, after scroll-snap, or after slide transition
     const now = Date.now();
     if (now - sectionArrivalTime < 600) return;
     if (now - scrollSnapPendingTime < 1000) return;
+    if (now - slideTransitionEndTime < 400) return;
 
     const currentSlide = parseInt(currentSection.dataset.currentSlide);
 
@@ -164,6 +166,17 @@ function setupSequenceScrolling() {
       hasTriggeredThisGesture = true;
       const direction = accumulatedDelta > 0 ? 1 : -1;
       accumulatedDelta = 0;
+
+      // Check if scrolling back from visible signature - hide it first
+      const lastSectionIndex = photoEssayData.sections.length - 1;
+      if (currentSectionIndex === lastSectionIndex && direction === -1) {
+        const signature = currentSection.querySelector('.signature');
+        if (signature && signature.classList.contains('visible')) {
+          signature.classList.remove('visible');
+          signature.classList.add('hidden');
+          return;
+        }
+      }
 
       const nextSlide = currentSlide + direction;
 
@@ -201,10 +214,11 @@ function setupSequenceScrolling() {
 
     if (isTransitioning || touchHandled) return;
 
-    // Ignore touch events briefly after arriving at a new section or after scroll-snap
+    // Ignore touch events briefly after arriving at a new section, after scroll-snap, or after slide transition
     const now = Date.now();
     if (now - sectionArrivalTime < 600) return;
     if (now - scrollSnapPendingTime < 1000) return;
+    if (now - slideTransitionEndTime < 400) return;
 
     const touchY = e.touches[0].clientY;
     const deltaY = touchStartY - touchY;
@@ -213,10 +227,22 @@ function setupSequenceScrolling() {
 
     const currentSlide = parseInt(currentSection.dataset.currentSlide);
     const direction = deltaY > 0 ? 1 : -1;
-    const nextSlide = currentSlide + direction;
 
     touchHandled = true;
     touchStartY = touchY;
+
+    // Check if scrolling back from visible signature - hide it first
+    const lastSectionIndex = photoEssayData.sections.length - 1;
+    if (currentSectionIndex === lastSectionIndex && direction === -1) {
+      const signature = currentSection.querySelector('.signature');
+      if (signature && signature.classList.contains('visible')) {
+        signature.classList.remove('visible');
+        signature.classList.add('hidden');
+        return;
+      }
+    }
+
+    const nextSlide = currentSlide + direction;
 
     if (nextSlide >= 0 && nextSlide < slideCount) {
       transitionToSlide(currentSection, nextSlide);
@@ -381,9 +407,12 @@ function transitionToSlide(sectionEl, slideIndex) {
       newMedia.style.transition = '';
     }, 450);
 
-    // Release the transition lock (gesture flag is reset by wheelTimeout when scrolling stops)
+    // Release the transition lock and reset gesture state to prevent momentum carryover
     setTimeout(() => {
       isTransitioning = false;
+      accumulatedDelta = 0;
+      hasTriggeredThisGesture = false;
+      slideTransitionEndTime = Date.now();
     }, 700);
   } else {
     isTransitioning = false;
@@ -487,15 +516,35 @@ function setupSignatureReveal() {
   const sectionData = lastSection._sectionData;
   const lastSlideIndex = sectionData.slides.length - 1;
 
-  // Reveal signature when user tries to scroll past the last slide
+  // Track accumulated scroll for signature reveal (requires deliberate gesture)
+  let signatureAccumulatedDelta = 0;
+  let signatureWheelTimeout = null;
+
+  // Reveal signature when user makes a deliberate scroll past the last slide
   container.addEventListener('wheel', (e) => {
     if (currentSectionIndex !== lastSectionIndex) return;
 
     const currentSlide = parseInt(lastSection.dataset.currentSlide);
     const isOnLastSlide = currentSlide === lastSlideIndex;
 
-    // If on last slide and scrolling down, show signature
-    if (isOnLastSlide && e.deltaY > 0) {
+    if (!isOnLastSlide) {
+      signatureAccumulatedDelta = 0;
+      return;
+    }
+
+    // Only accumulate downward scrolls
+    if (e.deltaY > 0) {
+      signatureAccumulatedDelta += e.deltaY;
+    }
+
+    // Reset accumulator after pause in scrolling
+    if (signatureWheelTimeout) clearTimeout(signatureWheelTimeout);
+    signatureWheelTimeout = setTimeout(() => {
+      signatureAccumulatedDelta = 0;
+    }, 150);
+
+    // Require threshold before revealing (same as slide navigation)
+    if (signatureAccumulatedDelta >= DELTA_THRESHOLD) {
       signature.classList.remove('hidden');
       signature.classList.add('visible');
     }
@@ -514,8 +563,8 @@ function setupSignatureReveal() {
     const isOnLastSlide = currentSlide === lastSlideIndex;
     const deltaY = lastTouchY - e.touches[0].clientY;
 
-    // If on last slide and swiping up (scrolling down), show signature
-    if (isOnLastSlide && deltaY > 30) {
+    // If on last slide and swiping up (scrolling down) with enough force, show signature
+    if (isOnLastSlide && deltaY > 50) {
       signature.classList.remove('hidden');
       signature.classList.add('visible');
     }
