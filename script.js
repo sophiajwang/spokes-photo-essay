@@ -174,6 +174,11 @@ function setupSequenceScrolling() {
         if (signature && signature.classList.contains('visible')) {
           signature.classList.remove('visible');
           signature.classList.add('hidden');
+          // Reset gesture flag after short delay so user can continue scrolling
+          setTimeout(() => {
+            hasTriggeredThisGesture = false;
+            accumulatedDelta = 0;
+          }, 300);
           return;
         }
       }
@@ -238,6 +243,10 @@ function setupSequenceScrolling() {
       if (signature && signature.classList.contains('visible')) {
         signature.classList.remove('visible');
         signature.classList.add('hidden');
+        // Reset touch flag after short delay so user can continue swiping
+        setTimeout(() => {
+          touchHandled = false;
+        }, 300);
         return;
       }
     }
@@ -532,6 +541,13 @@ function setupSignatureReveal() {
       return;
     }
 
+    // Ignore events during/after slide transition to prevent momentum carryover
+    const now = Date.now();
+    if (now - slideTransitionEndTime < 500) {
+      signatureAccumulatedDelta = 0;
+      return;
+    }
+
     // Only accumulate downward scrolls
     if (e.deltaY > 0) {
       signatureAccumulatedDelta += e.deltaY;
@@ -561,10 +577,17 @@ function setupSignatureReveal() {
 
     const currentSlide = parseInt(lastSection.dataset.currentSlide);
     const isOnLastSlide = currentSlide === lastSlideIndex;
+
+    if (!isOnLastSlide) return;
+
+    // Ignore events during/after slide transition to prevent momentum carryover
+    const now = Date.now();
+    if (now - slideTransitionEndTime < 500) return;
+
     const deltaY = lastTouchY - e.touches[0].clientY;
 
-    // If on last slide and swiping up (scrolling down) with enough force, show signature
-    if (isOnLastSlide && deltaY > 50) {
+    // If swiping up (scrolling down) with enough force, show signature
+    if (deltaY > 50) {
       signature.classList.remove('hidden');
       signature.classList.add('visible');
     }
