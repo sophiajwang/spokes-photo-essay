@@ -140,8 +140,8 @@ function setupSequenceScrolling() {
 
     // Ignore wheel events briefly after arriving at a new section or after scroll-snap started
     const now = Date.now();
-    if (now - sectionArrivalTime < 500) return;
-    if (now - scrollSnapPendingTime < 800) return;
+    if (now - sectionArrivalTime < 600) return;
+    if (now - scrollSnapPendingTime < 1000) return;
 
     const currentSlide = parseInt(currentSection.dataset.currentSlide);
 
@@ -190,15 +190,20 @@ function setupSequenceScrolling() {
     if (!currentSection) return;
 
     const slideCount = parseInt(currentSection.dataset.slideCount);
-    if (slideCount <= 1) return;
+    if (slideCount <= 1) {
+      scrollSnapPendingTime = Date.now();
+      return;
+    }
 
     // Multi-slide section: prevent default
     e.preventDefault();
 
     if (isTransitioning || touchHandled) return;
 
-    // Ignore touch events briefly after arriving at a new section
-    if (Date.now() - sectionArrivalTime < 500) return;
+    // Ignore touch events briefly after arriving at a new section or after scroll-snap
+    const now = Date.now();
+    if (now - sectionArrivalTime < 600) return;
+    if (now - scrollSnapPendingTime < 1000) return;
 
     const touchY = e.touches[0].clientY;
     const deltaY = touchStartY - touchY;
@@ -256,12 +261,16 @@ function scrollToAdjacentSection(direction) {
   const targetIdx = currentIdx + direction;
   if (targetIdx >= 0 && targetIdx < allSections.length) {
     isTransitioning = true;
+    scrollSnapPendingTime = Date.now(); // Block events during and after this transition
     allSections[targetIdx].scrollIntoView({ behavior: 'smooth' });
 
     // Reset transition flag after scroll completes
     setTimeout(() => {
       isTransitioning = false;
       hasTriggeredThisGesture = false;
+      accumulatedDelta = 0;
+      // Refresh the arrival time to ensure cooldown starts from when transition completes
+      sectionArrivalTime = Date.now();
     }, 800);
   }
 }
@@ -302,13 +311,23 @@ function transitionToSlide(sectionEl, slideIndex) {
 
   let newMedia;
   if (slide.type === 'video') {
-    newMedia = sectionEl.querySelector(`.preload-video[data-slide-index="${slideIndex}"]`);
-    if (newMedia) {
-      newMedia = newMedia.cloneNode(true);
+    // Check for preloaded video first (for slides 1+)
+    const preloadVideo = sectionEl.querySelector(`.preload-video[data-slide-index="${slideIndex}"]`);
+    if (preloadVideo) {
+      newMedia = preloadVideo.cloneNode(true);
       newMedia.classList.remove('preload-video');
-      newMedia.classList.add('active-media', 'new-media');
-      newMedia.style.opacity = '0';
+    } else {
+      // For slide 0 or if preload doesn't exist, create video element
+      const ext = slide.media.split('.').pop().toLowerCase();
+      const mimeType = ext === 'mov' ? 'video/quicktime' : 'video/mp4';
+      newMedia = document.createElement('video');
+      newMedia.muted = true;
+      newMedia.loop = true;
+      newMedia.playsInline = true;
+      newMedia.innerHTML = `<source src="media/${slide.media}" type="${mimeType}">`;
     }
+    newMedia.classList.add('active-media', 'new-media');
+    newMedia.style.opacity = '0';
   } else {
     const preloadImg = sectionEl.querySelector(`.preload-image[data-slide-index="${slideIndex}"]`);
     newMedia = document.createElement('img');
