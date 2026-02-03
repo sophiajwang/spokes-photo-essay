@@ -97,12 +97,55 @@ html, body {
   position: relative;
 }
 
-.media-container img,
-.media-container video {
+.media-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-wrapper img,
+.media-wrapper video {
+  position: absolute;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   display: block;
+  z-index: 1;
+}
+
+.active-media {
+  opacity: 1;
+}
+
+.active-media.new-media {
+  z-index: 2;
+}
+
+/* Progress dots */
+.progress-dots {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.dot.active {
+  background: rgba(255, 255, 255, 0.9);
+  transform: scale(1.2);
 }
 
 /* Caption container - right 30% */
@@ -114,6 +157,7 @@ html, body {
   justify-content: center;
   padding: 3rem;
   padding-right: 4rem;
+  position: relative;
 }
 
 .caption-title {
@@ -131,6 +175,7 @@ html, body {
   color: rgba(255, 255, 255, 0.8);
   margin-bottom: 2rem;
   white-space: pre-line;
+  transition: opacity 0.2s ease;
 }
 
 .caption-location {
@@ -139,18 +184,70 @@ html, body {
   color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  transition: opacity 0.2s ease;
 }
 
-/* Signature on last slide */
+/* Text fade animations */
+.fade-out-text {
+  opacity: 0;
+}
+
+.fade-in-text {
+  animation: fadeInText 0.3s ease forwards;
+}
+
+@keyframes fadeInText {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Signature styling */
 .signature {
   position: absolute;
   bottom: 3rem;
   right: 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.signature.hidden {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.signature.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.signature-yours {
   font-size: clamp(1rem, 1.5vw, 1.25rem);
   font-weight: 300;
   font-style: italic;
   color: rgba(255, 255, 255, 0.9);
-  text-align: right;
+}
+
+.signature-name {
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  font-weight: 300;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Preload container */
+.preload-container {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Mobile responsive */
@@ -161,13 +258,13 @@ html, body {
 
   .media-container {
     width: 100%;
-    height: 60vh;
+    height: 55vh;
     padding: 1rem;
   }
 
   .caption-container {
     width: 100%;
-    height: 40vh;
+    height: 45vh;
     padding: 1.5rem;
     justify-content: flex-start;
     overflow-y: auto;
@@ -192,7 +289,11 @@ html, body {
     bottom: auto;
     right: auto;
     margin-top: 1.5rem;
-    text-align: left;
+    align-items: flex-start;
+  }
+
+  .progress-dots {
+    bottom: 1rem;
   }
 
   .cover-title {
@@ -220,18 +321,8 @@ html, body {
   }
 }
 
-/* Loading state for images */
-.media-container img {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.media-container img.loaded {
-  opacity: 1;
-}
-
 /* Video controls hidden by default */
-.media-container video {
+.media-wrapper video {
   outline: none;
 }
 
@@ -243,4 +334,13 @@ html, body {
 .container {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Loading state for images */
+.media-wrapper img:not(.loaded) {
+  opacity: 0;
+}
+
+.media-wrapper img.loaded {
+  opacity: 1;
 }

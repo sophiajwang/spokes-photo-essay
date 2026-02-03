@@ -114,7 +114,7 @@ const photoEssayData = {
       title: "Mother Nature makes herself known",
       subtitle: "Torrential rain made for a flooded road, loose electrical wires, a cyclist about to get the bejeezus scared out of her. Do not attempt an impromptu river crossing! I learned my lesson the hard (and scary) way.",
       slides: [
-        { media: "12_1.MOV", type: "video", location: "Reading, Kansas" },
+        { media: "12_1.mp4", type: "video", location: "Reading, Kansas" },
         { media: "12_2.PNG", location: "Reading, Kansas" },
         { media: "12_3.MP4", type: "video", location: "Walton, Kansas", subtitle: "Hank and JD were caught in a violent thunderstorm, so they scrambled into a ditch by the roadside while car alarms blared and the prairie grass whipped around them. Meanwhile, I was inside a gas station a mile back, snacking on a 100 Grand bar and solving riddles with the cashier (sometimes it pays to be slow). Cleo was long gone, too fast for the storm to catch." }
       ]
