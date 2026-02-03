@@ -174,7 +174,7 @@ html, body {
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.8);
   margin-bottom: 2rem;
-  white-space: pre-line;
+  white-space: pre-wrap;
   transition: opacity 0.2s ease;
 }
 
