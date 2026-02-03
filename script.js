@@ -13,6 +13,7 @@ let accumulatedDelta = 0;
 let wheelTimeout = null;
 let hasTriggeredThisGesture = false;
 let sectionArrivalTime = 0; // Timestamp when we arrived at current section
+let scrollSnapPendingTime = 0; // Timestamp when scroll-snap navigation started
 let videoObserver = null; // Global reference for registering dynamically created videos
 const DELTA_THRESHOLD = 50; // Accumulated delta needed to trigger transition
 
@@ -125,7 +126,11 @@ function setupSequenceScrolling() {
     const slideCount = parseInt(currentSection.dataset.slideCount);
 
     // Single-slide sections: let normal scroll-snap handle it
-    if (slideCount <= 1) return;
+    if (slideCount <= 1) {
+      // Mark that scroll-snap is about to handle navigation
+      scrollSnapPendingTime = Date.now();
+      return;
+    }
 
     // Multi-slide section: ALWAYS prevent default to stop scroll-snap
     e.preventDefault();
@@ -133,8 +138,10 @@ function setupSequenceScrolling() {
     // Don't process if transitioning
     if (isTransitioning) return;
 
-    // Ignore wheel events briefly after arriving at a new section
-    if (Date.now() - sectionArrivalTime < 500) return;
+    // Ignore wheel events briefly after arriving at a new section or after scroll-snap started
+    const now = Date.now();
+    if (now - sectionArrivalTime < 500) return;
+    if (now - scrollSnapPendingTime < 800) return;
 
     const currentSlide = parseInt(currentSection.dataset.currentSlide);
 
@@ -371,8 +378,10 @@ function transitionToSlide(sectionEl, slideIndex) {
     fadeText(subtitleEl, newSubtitle);
   }
 
-  // Always update location with fade
-  fadeText(locationEl, slide.location);
+  // Only animate location if it changed
+  if (slide.location !== prevSlide.location) {
+    fadeText(locationEl, slide.location);
+  }
 }
 
 function fadeText(element, newText) {
@@ -444,36 +453,55 @@ function navigateDirection(direction) {
 
 function setupSignatureReveal() {
   const container = document.querySelector('.container');
-  const lastSection = document.querySelector(`.media-section[data-section-index="${photoEssayData.sections.length - 1}"]`);
+  const lastSectionIndex = photoEssayData.sections.length - 1;
+  const lastSection = document.querySelector(`.media-section[data-section-index="${lastSectionIndex}"]`);
 
   if (!lastSection) return;
 
   const signature = lastSection.querySelector('.signature');
   if (!signature) return;
 
-  // Check scroll position relative to last section
-  container.addEventListener('scroll', () => {
-    const rect = lastSection.getBoundingClientRect();
-    const sectionData = lastSection._sectionData;
-    const currentSlide = parseInt(lastSection.dataset.currentSlide);
-    const isOnLastSlide = currentSlide === sectionData.slides.length - 1;
+  const sectionData = lastSection._sectionData;
+  const lastSlideIndex = sectionData.slides.length - 1;
 
-    // Reveal signature when on last slide and scrolled down a bit (trying to scroll past)
-    // The section top should be above viewport top, indicating user is at bottom
-    if (isOnLastSlide && rect.top < 0) {
+  // Reveal signature when user tries to scroll past the last slide
+  container.addEventListener('wheel', (e) => {
+    if (currentSectionIndex !== lastSectionIndex) return;
+
+    const currentSlide = parseInt(lastSection.dataset.currentSlide);
+    const isOnLastSlide = currentSlide === lastSlideIndex;
+
+    // If on last slide and scrolling down, show signature
+    if (isOnLastSlide && e.deltaY > 0) {
       signature.classList.remove('hidden');
       signature.classList.add('visible');
-    } else if (rect.top >= 0) {
-      signature.classList.remove('visible');
-      signature.classList.add('hidden');
     }
-  });
+  }, { passive: true });
 
-  // Also check on slide transitions
+  // Also handle touch
+  let lastTouchY = 0;
+  container.addEventListener('touchstart', (e) => {
+    lastTouchY = e.touches[0].clientY;
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (currentSectionIndex !== lastSectionIndex) return;
+
+    const currentSlide = parseInt(lastSection.dataset.currentSlide);
+    const isOnLastSlide = currentSlide === lastSlideIndex;
+    const deltaY = lastTouchY - e.touches[0].clientY;
+
+    // If on last slide and swiping up (scrolling down), show signature
+    if (isOnLastSlide && deltaY > 30) {
+      signature.classList.remove('hidden');
+      signature.classList.add('visible');
+    }
+  }, { passive: true });
+
+  // Hide signature when navigating away from last slide
   const observer = new MutationObserver(() => {
     const currentSlide = parseInt(lastSection.dataset.currentSlide);
-    const sectionData = lastSection._sectionData;
-    const isOnLastSlide = currentSlide === sectionData.slides.length - 1;
+    const isOnLastSlide = currentSlide === lastSlideIndex;
 
     if (!isOnLastSlide) {
       signature.classList.remove('visible');
